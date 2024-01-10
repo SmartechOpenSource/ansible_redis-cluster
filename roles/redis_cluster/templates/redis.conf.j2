@@ -1,0 +1,12 @@
+bind {{ ansible_host }}
+port {{ (redis_base_port + item - 1) }}
+daemonize yes
+supervised systemd
+pidfile /var/run/redis/redis-{{ item }}/redis-server.pid
+logfile /var/log/redis/redis-{{ item }}/redis.log
+save ""
+cluster-enabled yes
+cluster-config-file /etc/redis/redis-{{ item }}/nodes.conf
+cluster-node-timeout 5000
+dir /var/lib/redis/redis-{{ item }}/
+requirepass "{{ redis_pass }}"

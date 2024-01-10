@@ -1,0 +1,90 @@
+- name: Install Redis
+  apt:
+    name: redis-server
+    state: present
+
+- name: Create Redis Directories (/var/lib/redis/, /var/log/redis/, /etc/redis/)
+  file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ '/var/log/redis/' | default([]) }}"
+    - "{{ '/var/lib/redis/' | default([]) }}"
+    - "{{ '/etc/redis/' | default([]) }}"
+
+- name: Create /var/lib directories
+  file:
+    path: "/var/lib/redis/redis-{{ item }}"
+    state: directory
+  loop: "{{ range(1, redis_instances_per_host + 1) | list }}"
+
+- name: create /var/log directories
+  file:
+    path: "/var/log/redis/redis-{{ item }}"
+    state: directory
+  loop: "{{ range(1, redis_instances_per_host + 1) | list }}"
+
+- name: create /etc/redis directories
+  file:
+    path: "/etc/redis/redis-{{ item }}"
+    state: directory
+  loop: "{{ range(1, redis_instances_per_host + 1) | list }}"
+
+- name: Create Redis user
+  user:
+    name: "{{ redis_user }}"
+    group: "{{ redis_group }}"
+    shell: /usr/sbin/nologin
+
+- name: Create Redis group
+  group:
+    name: "{{ redis_group }}"
+
+
+- name: Set directory permissions for Redis
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ redis_user }}"
+    group: "{{ redis_group }}"
+    mode: "0755"
+    recurse: "yes"
+  loop: "{{ redis_directories }}"
+
+- name: Create Redis configuration file for instances
+  template:
+    src: redis.conf.j2
+    dest: "/etc/redis/redis-{{ item }}/redis.conf"
+  loop: "{{ range(1, redis_instances_per_host + 1) | list }}"
+
+- name: Generate Redis systemd unit files
+  tags:
+    - systemd
+  template:
+    src: systemd.j2
+    dest: "/etc/systemd/system/redis-server-{{ item }}.service"
+  loop: "{{ range(1, redis_instances_per_host + 1) | list }}"
+  notify:
+    - Reload systemd
+    - Restart Redis Instance
+
+- name: Gather Redis Hosts
+  set_fact:
+    redis_hosts: "{{ groups['redis_hosts'] | map('extract', hostvars, ['ansible_host']) | list }}"
+
+- name: Display Redis cluster initialization command
+  debug:
+    msg: "i will use this command to init the cluster \n: redis-cli --cluster create {{ redis_hosts | product(range(redis_base_port, redis_base_port + redis_instances_per_host)) | map('join', ':') | join(' ') }} --cluster-replicas 1 delegate_to: {{ redis_hosts[0] }}"
+  run_once: true
+
+- name: Confirm Initialization
+  pause:
+    prompt: "Redis cluster configuration complete. Do you want to initialize the cluster now? (y/n)"
+  register: init_confirmation
+
+- name: Initialize Redis Cluster
+  command: "redis-cli --cluster create {{ redis_hosts | product(range(redis_base_port, redis_base_port + redis_instances_per_host)) | map('join', ':') | join(' ') }} --cluster-replicas 1 delegate_to: {{ redis_hosts[0] }}"
+  when: init_confirmation.user_input == 'y' or init_confirmation.user_input == 'yes'
+  run_once: true
+
+

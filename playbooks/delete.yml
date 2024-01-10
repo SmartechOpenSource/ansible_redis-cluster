@@ -1,0 +1,26 @@
+- name: delete Redis
+  hosts: all
+  strategy: free
+  become: yes
+  gather_facts: no
+  vars:
+    redis_instances_per_host: 10  
+  tasks:
+    
+    - name:  delete /var/lib/redis directories
+      file:
+        path: "/var/lib/redis/{{ inventory_hostname }}-{{ item }}"
+        state: absent
+      loop: "{{ range(1, redis_instances_per_host + 1) | list }}"
+    
+    - name: delete /var/log/redis directories
+      file:
+        path: "/var/log/redis/{{ inventory_hostname }}-{{ item }}"
+        state: absent
+      loop: "{{ range(1, redis_instances_per_host + 1) | list }}"
+    
+    - name: delete /etc/redis directories
+      file:
+        path: "/etc/redis/{{ inventory_hostname }}-{{ item }}"
+        state: absent
+      loop: "{{ range(1, redis_instances_per_host + 1) | list }}"
