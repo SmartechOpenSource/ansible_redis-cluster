@@ -15,7 +15,7 @@ Automate the deployment of a Redis cluster using Ansible! Deploy multiple instan
 1. **Clone this repository:**
    ```
    git clone https://github.com/SmartechOpenSource/ansible_redis-cluster.git
-   cd ansible_redis-cluster 
+   cd ansible_redis-cluster/playbooks
 2. **Update the inventory.ini and playbook.yml file:**
 
       we want 2 Redis servers on each instance
