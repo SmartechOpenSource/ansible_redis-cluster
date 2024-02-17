@@ -1,5 +1,6 @@
 - name: Install Redis
   apt:
+    update_cache: true
     name: redis-server
     state: present
 
@@ -12,7 +13,7 @@
     - "{{ '/var/lib/redis/' | default([]) }}"
     - "{{ '/etc/redis/' | default([]) }}"
 
-- name: Create /var/lib directories
+- name: Create /var/lib directories for each instance
   file:
     path: "/var/lib/redis/redis-{{ item }}"
     state: directory
@@ -40,7 +41,6 @@
   group:
     name: "{{ redis_group }}"
 
-
 - name: Set directory permissions for Redis
   file:
     path: "{{ item }}"
@@ -64,9 +64,23 @@
     src: systemd.j2
     dest: "/etc/systemd/system/redis-server-{{ item }}.service"
   loop: "{{ range(1, redis_instances_per_host + 1) | list }}"
-  notify:
-    - Reload systemd
-    - Restart Redis Instance
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: stop default redis-server
+  systemd:
+    name: redis-server
+    state: stopped
+    enabled: no
+
+- name: Start-Enable Redis instances
+  systemd:
+    name: redis-server-{{ item }}
+    state: started
+    enabled: yes
+  loop: "{{ range(1, redis_instances_per_host + 1) | list }}"
 
 - name: Gather Redis Hosts
   set_fact:
@@ -74,7 +88,9 @@
 
 - name: Display Redis cluster initialization command
   debug:
-    msg: "i will use this command to init the cluster \n: redis-cli --cluster create {{ redis_hosts | product(range(redis_base_port, redis_base_port + redis_instances_per_host)) | map('join', ':') | join(' ') }} --cluster-replicas 1 delegate_to: {{ redis_hosts[0] }}"
+    msg:
+      - "i will use this command to init the cluster: "
+      - "redis-cli --cluster create {{ redis_hosts | product(range(redis_base_port, redis_base_port + redis_instances_per_host)) | map('join', ':') | join(' ') }} --cluster-replicas 1 -a {{ redis_pass }}  delegate_to: {{ redis_hosts[0] }}"
   run_once: true
 
 - name: Confirm Initialization
@@ -83,8 +99,6 @@
   register: init_confirmation
 
 - name: Initialize Redis Cluster
-  command: "redis-cli --cluster create {{ redis_hosts | product(range(redis_base_port, redis_base_port + redis_instances_per_host)) | map('join', ':') | join(' ') }} --cluster-replicas 1 delegate_to: {{ redis_hosts[0] }}"
+  command: "redis-cli --cluster create {{ redis_hosts | product(range(redis_base_port, redis_base_port + redis_instances_per_host)) | map('join', ':') | join(' ') }} --cluster-replicas 1 -a {{ redis_pass }} delegate_to: {{ redis_hosts[0] }}"
   when: init_confirmation.user_input == 'y' or init_confirmation.user_input == 'yes'
   run_once: true
-
-

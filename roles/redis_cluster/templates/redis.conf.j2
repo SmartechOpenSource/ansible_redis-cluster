@@ -10,3 +10,4 @@ cluster-config-file /etc/redis/redis-{{ item }}/nodes.conf
 cluster-node-timeout 5000
 dir /var/lib/redis/redis-{{ item }}/
 requirepass "{{ redis_pass }}"
+masterauth "{{ redis_pass }}"

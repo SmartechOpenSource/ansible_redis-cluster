@@ -1,15 +1,23 @@
 ---
+- name: install redis-tools on local machine so we can init the cluster
+  hosts: localhost
+  become: true
+  gather_facts: false
+  tasks:
+    - apt:
+        name: redis-tools
+        state: present
+
 - name: Start Redis instances and initialize Redis cluster
   hosts: all
   become: true
   gather_facts: false
 
   vars:
-
     # kept the vars here for simplicity
 
     redis_instances_per_host: 2
-    redis_base_port: 6379  # Base port number for Redis instances
+    redis_base_port: 6379 # Base port number for Redis instances
     redis_pass: "golabi" # You better change this or i'm coming for you (:
     redis_user: redis
     redis_group: redis
@@ -20,4 +28,3 @@
 
   roles:
     - ../roles/redis_cluster
-
